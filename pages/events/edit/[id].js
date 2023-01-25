@@ -7,23 +7,37 @@ import styles from "@/styles/Form.module.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { API_URL } from "@/config/index";
+import moment from "moment";
+import Image from "next/image";
+import { FaImage } from "react-icons/fa";
+import Modal from "@/components/Modal";
+import ImageUpload from "@/components/ImageUpload";
 
-const AddEventPage = () => {
+const EditEventPage = ({ evt }) => {
   const [values, setValues] = useState({
-    name: "",
-    performers: "",
-    venue: "",
-    address: "",
-    date: "",
-    time: "",
-    description: "",
+    id: evt.data.attributes.id,
+    name: evt.data.attributes.name,
+    performers: evt.data.attributes.performers,
+    venue: evt.data.attributes.venue,
+    address: evt.data.attributes.address,
+    date: evt.data.attributes.date,
+    time: evt.data.attributes.time,
+    description: evt.data.attributes.description,
   });
+
+  const [imagePreview, setImagePreview] = useState(
+    evt.data.attributes.image
+      ? null
+      : evt.data.attributes.image.data.attributes.formats.medium.url
+  );
+
+  const [showModal, setShowModal] = useState(false);
 
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    console.log(evt);
     // Validation
     const hasEmptyFields = Object.values(values).some(
       (element) => element === ""
@@ -33,8 +47,8 @@ const AddEventPage = () => {
       toast.error("Please fill in all fields");
     }
 
-    const res = await fetch(`${API_URL}/api/events`, {
-      method: "POST",
+    const res = await fetch(`${API_URL}/api/events/${evt.data.id}`, {
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
@@ -45,7 +59,6 @@ const AddEventPage = () => {
       toast.error("Something Went Wrong");
     } else {
       const evt = await res.json();
-      console.log("evt", evt);
       router.push(`/events/${evt.data.attributes.slug}`);
     }
   };
@@ -55,10 +68,18 @@ const AddEventPage = () => {
     setValues({ ...values, [name]: value });
   };
 
+  const imageUploaded = async (e) => {
+    const res = await fetch(`${API_URL}/api/events/${evt.id}}`);
+    const data = await res.json();
+    setImagePreview(data.image.data.attributes.formats.medium.url);
+    setShowModal(false);
+  };
+
   return (
     <Layout title="Add New Event">
       <Link href="/events">Go back</Link>
-      <h1>Add Event Page</h1>
+      <h1>Edit Event Page</h1>
+
       <ToastContainer />
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.grid}>
@@ -108,7 +129,7 @@ const AddEventPage = () => {
               type="date"
               name="date"
               id="date"
-              value={values.date}
+              value={moment(values.date).format("yyyy-MM-DD")}
               onChange={handleInputChange}
             />
           </div>
@@ -134,10 +155,39 @@ const AddEventPage = () => {
           ></textarea>
         </div>
 
-        <input type="submit" value="Add Event" className="btn" />
+        <input type="submit" value="Update Event" className="btn" />
       </form>
+      <h2>Event Image</h2>
+      {imagePreview ? (
+        <Image src={imagePreview} height={100} width={170} />
+      ) : (
+        <div>
+          <p>No Image uploaded</p>
+        </div>
+      )}
+      <div>
+        <button onClick={() => setShowModal(true)} className="btn-secondary">
+          <FaImage /> Set Image
+        </button>
+      </div>
+      <Modal show={showModal} onClose={() => setShowModal(false)}>
+        <ImageUpload evtId={evt.id} imageUploaded={imageUploaded} />
+      </Modal>
     </Layout>
   );
 };
 
-export default AddEventPage;
+export default EditEventPage;
+
+export async function getServerSideProps({ params: { id }, req }) {
+  const res = await fetch(`${API_URL}/api/events/${id}?populate=*`);
+  const evt = await res.json();
+
+  console.log(req.headers.cookie);
+
+  return {
+    props: {
+      evt,
+    },
+  };
+}

@@ -25,6 +25,7 @@
   margin-left: 20px;
   color: red;
   gap: 5px;
+  cursor: pointer;
 }
 
 .edit {
